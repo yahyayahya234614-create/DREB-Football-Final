@@ -1,39 +1,261 @@
+
 (() => {
   'use strict';
+
   const $ = (selector) => document.querySelector(selector);
+
   const els = {
-    matchList: $('#matchList'), search: $('#searchInput'), date: $('#datePicker'), refresh: $('#refreshBtn'),
-    sectionTitle: $('#sectionTitle'), sectionSubtitle: $('#sectionSubtitle'), crumb: $('#crumbTitle'), headingDate: $('#headingDate'),
-    tabButtons: [...document.querySelectorAll('.match-tab')], navButtons: [...document.querySelectorAll('.nav-item')],
-    filterBtn: $('#leagueFilterBtn'), filterPanel: $('#filterPanel'), leagueSelect: $('#leagueSelect'), clearFilters: $('#clearFilters'),
-    sort: $('#sortSelect'), loadMore: $('#loadMoreBtn'), resultCount: $('#resultCount'), toast: $('#toast')
+    matchList: $('#matchList'),
+    search: $('#searchInput'),
+    date: $('#datePicker'),
+    refresh: $('#refreshBtn'),
+    sectionTitle: $('#sectionTitle'),
+    sectionSubtitle: $('#sectionSubtitle'),
+    crumb: $('#crumbTitle'),
+    headingDate: $('#headingDate'),
+    tabButtons: [...document.querySelectorAll('.match-tab')],
+    navButtons: [...document.querySelectorAll('.nav-item')],
+    filterBtn: $('#leagueFilterBtn'),
+    filterPanel: $('#filterPanel'),
+    leagueSelect: $('#leagueSelect'),
+    clearFilters: $('#clearFilters'),
+    sort: $('#sortSelect'),
+    loadMore: $('#loadMoreBtn'),
+    resultCount: $('#resultCount'),
+    toast: $('#toast')
   };
-  const state = { matches: [], view: 'today', tab: 'all', query: '', league: 'all', sort: 'time', loading: false, error: '', limit: 12, favorites: readFavorites(), lastUpdated: null, toastTimer: null };
-  const viewLabels = { today: 'مباريات اليوم', live: 'مباشر الآن', upcoming: 'المباريات القادمة', finished: 'المباريات المنتهية', favorites: 'المفضلة' };
-  const liveStatuses = new Set(['IN_PLAY', 'PAUSED', 'LIVE', '1H', '2H', 'ET', 'P', 'HT']);
-  const doneStatuses = new Set(['FINISHED', 'FT', 'AET', 'PEN', 'AWARDED']);
-  const upcomingStatuses = new Set(['SCHEDULED', 'TIMED', 'NS']);
-  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  function readFavorites() { try { return new Set(JSON.parse(localStorage.getItem('dreb-favorites-v2') || '[]').map(String)); } catch { return new Set(); } }
-  function saveFavorites() { try { localStorage.setItem('dreb-favorites-v2', JSON.stringify([...state.favorites])); } catch { toast('تعذر حفظ المفضلة على هذا الجهاز.'); } }
-  function toast(message) { els.toast.textContent = message; els.toast.classList.add('show'); clearTimeout(state.toastTimer); state.toastTimer = setTimeout(() => els.toast.classList.remove('show'), 2600); }
-  function todayISO() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
-  function dateLabel(value) { if (!value) return ''; const d = new Date(`${value}T12:00:00`); return new Intl.DateTimeFormat('ar-MA', { day: 'numeric', month: 'short', year: 'numeric' }).format(d); }
-  function timeLabel(value) { if (!value) return '—'; const d = new Date(value); if (Number.isNaN(d.getTime())) return '—'; return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }).format(d); }
-  function statusOf(m) { const s = String(m.status || '').toUpperCase(); if (liveStatuses.has(s)) return 'live'; if (doneStatuses.has(s)) return 'finished'; if (upcomingStatuses.has(s)) return 'upcoming'; return 'other'; }
-  function statusText(m) { const s = String(m.status || '').toUpperCase(); if (s === 'PAUSED' || s === 'HT') return 'استراحة'; if (liveStatuses.has(s)) return m.minute != null ? `${m.minute}′` : 'مباشر'; if (doneStatuses.has(s)) return 'نهاية المباراة'; if (s === 'POSTPONED') return 'مؤجلة'; if (s === 'CANCELLED') return 'أُلغيت'; if (s === 'SUSPENDED') return 'متوقفة'; if (s === 'PENDING') return 'بانتظار التأكيد'; if (upcomingStatuses.has(s)) return timeLabel(m.utcDate || m.date); return 'الحالة غير متاحة'; }
-  function score(m) { const h = m.homeScore ?? m.score?.fullTime?.home ?? m.score?.regularTime?.home; const a = m.awayScore ?? m.score?.fullTime?.away ?? m.score?.regularTime?.away; if (h == null || a == null) return '– : –'; return `${h} : ${a}`; }
-  function teamName(team) { return team?.name || team?.shortName || 'فريق غير معروف'; }
-  function teamAbbr(team) { const name = teamName(team).trim(); return (team?.tla || name.split(/\s+/).slice(0,2).map(x => x[0]).join('')).slice(0,3).toUpperCase() || 'FC'; }
-  function matchId(m) { return String(m.id ?? `${m.homeTeam?.id || teamName(m.homeTeam)}-${m.utcDate || m.date}-${m.awayTeam?.id || teamName(m.awayTeam)}`); }
-  function renderTeam(team, side) {
-    const name = teamName(team); const crest = team?.crest;
-    // Avoid inline event handlers: provider data must never become executable JS.
-    const crestHtml = crest && /^https:\/\//i.test(crest)
-      ? `<span class="team-crest"><img src="${esc(crest)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-fallback="${esc(teamAbbr(team))}"></span>`
-      : `<span class="team-crest">${esc(teamAbbr(team))}</span>`;
-    return `<div class="team ${side}">${crestHtml}<span class="team-name" title="${esc(name)}">${esc(name)}</span></div>`;
+
+  // Stop early if the HTML structure doesn't match this script.
+  const required = [
+    'matchList', 'search', 'date', 'refresh', 'sectionTitle',
+    'sectionSubtitle', 'crumb', 'headingDate', 'filterBtn',
+    'filterPanel', 'leagueSelect', 'clearFilters', 'sort',
+    'loadMore', 'resultCount', 'toast'
+  ];
+
+  for (const key of required) {
+    if (!els[key]) {
+      console.error(`DREB Football: missing HTML element "${key}".`);
+      return;
+    }
   }
+
+  const state = {
+    matches: [],
+    view: 'today',
+    tab: 'all',
+    query: '',
+    league: 'all',
+    sort: 'time',
+    loading: false,
+    error: '',
+    limit: 12,
+    favorites: readFavorites(),
+    lastUpdated: null,
+    toastTimer: null,
+    requestController: null
+  };
+
+  const viewLabels = {
+    today: 'مباريات اليوم',
+    live: 'مباشر الآن',
+    upcoming: 'المباريات القادمة',
+    finished: 'المباريات المنتهية',
+    favorites: 'المفضلة'
+  };
+
+  const liveStatuses = new Set([
+    'IN_PLAY', 'PAUSED', 'LIVE', '1H', '2H',
+    'ET', 'P', 'HT', 'BREAK', 'EXTRA_TIME'
+  ]);
+
+  const doneStatuses = new Set([
+    'FINISHED', 'FT', 'AET', 'PEN', 'AWARDED'
+  ]);
+
+  const upcomingStatuses = new Set([
+    'SCHEDULED', 'TIMED', 'NS'
+  ]);
+
+  const esc = (value) =>
+    String(value ?? '').replace(/[&<>"']/g, char => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    })[char]);
+
+  function readFavorites() {
+    try {
+      const value = JSON.parse(
+        localStorage.getItem('dreb-favorites-v2') || '[]'
+      );
+      return new Set(value.map(String));
+    } catch {
+      return new Set();
+    }
+  }
+
+  function saveFavorites() {
+    try {
+      localStorage.setItem(
+        'dreb-favorites-v2',
+        JSON.stringify([...state.favorites])
+      );
+    } catch {
+      toast('تعذر حفظ المفضلة على هذا الجهاز.');
+    }
+  }
+
+  function toast(message) {
+    els.toast.textContent = message;
+    els.toast.classList.add('show');
+
+    clearTimeout(state.toastTimer);
+
+    state.toastTimer = setTimeout(() => {
+      els.toast.classList.remove('show');
+    }, 2600);
+  }
+
+  function todayISO() {
+    const date = new Date();
+
+    return [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+      String(date.getDate()).padStart(2, '0')
+    ].join('-');
+  }
+
+  function dateLabel(value) {
+    if (!value) return '';
+
+    const date = new Date(`${value}T12:00:00`);
+
+    return new Intl.DateTimeFormat('ar-MA', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    }).format(date);
+  }
+
+  function timeLabel(value) {
+    if (!value) return '—';
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) return '—';
+
+    return new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).format(date);
+  }
+
+  function matchDate(match) {
+    if (!match.utcDate && !match.date) return '';
+    const date = new Date(match.utcDate || match.date);
+
+    if (Number.isNaN(date.getTime())) return '';
+
+    // Use the viewer's local date for the displayed match day.
+    return [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+      String(date.getDate()).padStart(2, '0')
+    ].join('-');
+  }
+
+  function statusOf(match) {
+    const status = String(match.status || '').toUpperCase();
+
+    if (liveStatuses.has(status)) return 'live';
+    if (doneStatuses.has(status)) return 'finished';
+    if (upcomingStatuses.has(status)) return 'upcoming';
+
+    return 'other';
+  }
+
+  function statusText(match) {
+    const status = String(match.status || '').toUpperCase();
+
+    if (status === 'PAUSED' || status === 'HT') {
+      return 'استراحة';
+    }
+
+    if (liveStatuses.has(status)) {
+      return match.minute != null ? `${match.minute}′` : 'مباشر';
+    }
+
+    if (doneStatuses.has(status)) return 'نهاية المباراة';
+    if (status === 'POSTPONED') return 'مؤجلة';
+    if (status === 'CANCELLED') return 'أُلغيت';
+    if (status === 'SUSPENDED') return 'متوقفة';
+    if (status === 'PENDING') return 'بانتظار التأكيد';
+
+    if (upcomingStatuses.has(status)) {
+      return timeLabel(match.utcDate || match.date);
+    }
+
+    return 'الحالة غير متاحة';
+  }
+
+  function score(match) {
+    const home =
+      match.homeScore ??
+      match.score?.fullTime?.home ??
+      match.score?.regularTime?.home;
+
+    const away =
+      match.awayScore ??
+      match.score?.fullTime?.away ??
+      match.score?.regularTime?.away;
+
+    if (home == null || away == null) return '– : –';
+
+    return `${home} : ${away}`;
+  }
+
+  function teamName(team) {
+    return team?.name || team?.shortName || 'فريق غير معروف';
+  }
+
+  function teamAbbr(team) {
+    const name = teamName(team).trim();
+
+    return (
+      team?.tla ||
+      name.split(/\s+/).slice(0, 2).map(part => part[0]).join('')
+    ).slice(0, 3).toUpperCase() || 'FC';
+  }
+
+  function matchId(match) {
+    return String(
+      match.id ??
+      `${match.homeTeam?.id || teamName(match.homeTeam)}-${match.utcDate || match.date}-${match.awayTeam?.id || teamName(match.awayTeam)}`
+    );
+  }
+
+  function renderTeam(team, side) {
+    const name = teamName(team);
+    const crest = team?.crest;
+
+    const crestHtml =
+      crest && /^https:\/\//i.test(crest)
+        ? `<span class="team-crest"><img src="${esc(crest)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-fallback="${esc(teamAbbr(team))}"></span>`
+        : `<span class="team-crest">${esc(teamAbbr(team))}</span>`;
+
+    return `
+      <div class="team ${side}">
+        ${crestHtml}
+        <span class="team-name" title="${esc(name)}">${esc(name)}</span>
+      </div>
+    `;
+  }
+
   function attachCrestFallbacks() {
     els.matchList.querySelectorAll('img[data-fallback]').forEach(img => {
       img.addEventListener('error', () => {
@@ -44,105 +266,1482 @@
       }, { once: true });
     });
   }
-  function renderMatch(m) {
-    const status = statusOf(m), id = matchId(m), saved = state.favorites.has(id);
-    const comp = m.competition?.name || m.competitionName || 'مباراة';
-    const area = m.competition?.area?.name || m.area || m.stage || 'كرة القدم';
-    const time = status === 'live' ? statusText(m) : status === 'finished' ? 'انتهت' : status === 'upcoming' ? timeLabel(m.utcDate || m.date) : statusText(m);
-    const scoreText = status === 'upcoming' ? timeLabel(m.utcDate || m.date) : score(m);
-    const pill = status === 'live' ? '<span class="status-pill live">مباشر</span>' : status === 'upcoming' ? '<span class="status-pill soon">قادمة</span>' : status === 'finished' ? '<span class="status-pill">منتهية</span>' : `<span class="status-pill">${esc(statusText(m))}</span>`;
-    return `<article class="match-card" data-match-id="${esc(id)}"><div class="league-info"><span class="league-emblem">${esc((m.competition?.code || comp.slice(0,2)).slice(0,3).toUpperCase())}</span><div class="league-text"><strong title="${esc(comp)}">${esc(comp)}</strong><small>${esc(area)}${m.matchday ? ` · الجولة ${esc(m.matchday)}` : ''}</small></div></div><div class="teams-wrap">${renderTeam(m.homeTeam, 'home')}<div class="score-box"><div class="score-number">${esc(scoreText)}</div><div class="score-time ${status === 'live' ? 'is-live' : ''}">${esc(time)}</div></div>${renderTeam(m.awayTeam, 'away')}</div><div class="match-end">${pill}<button class="favorite-btn ${saved ? 'saved' : ''}" data-favorite="${esc(id)}" aria-label="${saved ? 'حذف من المفضلة' : 'إضافة للمفضلة'}" aria-pressed="${saved}">${saved ? '★' : '☆'}</button></div></article>`;
+
+  function renderMatch(match) {
+    const status = statusOf(match);
+    const id = matchId(match);
+    const saved = state.favorites.has(id);
+    const competition =
+      match.competition?.name || match.competitionName || 'مباراة';
+    const area =
+      match.competition?.area?.name ||
+      match.area ||
+      match.stage ||
+      'كرة القدم';
+
+    const time =
+      status === 'live'
+        ? statusText(match)
+        : status === 'finished'
+          ? 'انتهت'
+          : status === 'upcoming'
+            ? timeLabel(match.utcDate || match.date)
+            : statusText(match);
+
+    const scoreText =
+      status === 'upcoming'
+        ? timeLabel(match.utcDate || match.date)
+        : score(match);
+
+    let pill = '<span class="status-pill">الحالة غير متاحة</span>';
+
+    if (status === 'live') {
+      pill = '<span class="status-pill live">مباشر</span>';
+    } else if (status === 'upcoming') {
+      pill = '<span class="status-pill soon">قادمة</span>';
+    } else if (status === 'finished') {
+      pill = '<span class="status-pill">منتهية</span>';
+    }
+
+    return `
+      <article class="match-card" data-match-id="${esc(id)}">
+        <div class="league-info">
+          <span class="league-emblem">
+            ${esc((match.competition?.code || competition.slice(0, 2)).slice(0, 3).toUpperCase())}
+          </span>
+          <div class="league-text">
+            <strong title="${esc(competition)}">${esc(competition)}</strong>
+            <small>
+              ${esc(area)}
+              ${match.matchday ? ` · الجولة ${esc(match.matchday)}` : ''}
+            </small>
+          </div>
+        </div>
+
+        <div class="teams-wrap">
+          ${renderTeam(match.homeTeam, 'home')}
+          <div class="score-box">
+            <div class="score-number">${esc(scoreText)}</div>
+            <div class="score-time ${status === 'live' ? 'is-live' : ''}">
+              ${esc(time)}
+            </div>
+          </div>
+          ${renderTeam(match.awayTeam, 'away')}
+        </div>
+
+        <div class="match-end">
+          ${pill}
+          <button
+            class="favorite-btn ${saved ? 'saved' : ''}"
+            data-favorite="${esc(id)}"
+            aria-label="${saved ? 'حذف من المفضلة' : 'إضافة للمفضلة'}"
+            aria-pressed="${saved}"
+          >${saved ? '★' : '☆'}</button>
+        </div>
+      </article>
+    `;
   }
-  function visibleMatches() {
+
+  function matchesForCurrentView() {
+    const selectedDate = els.date.value || todayISO();
     let list = [...state.matches];
-    if (state.view === 'live') list = list.filter(m => statusOf(m) === 'live');
-    else if (state.view === 'upcoming') list = list.filter(m => statusOf(m) === 'upcoming');
-    else if (state.view === 'finished') list = list.filter(m => statusOf(m) === 'finished');
-    else if (state.view === 'favorites') list = list.filter(m => state.favorites.has(matchId(m)) || state.favorites.has(String(m.homeTeam?.id)) || state.favorites.has(String(m.awayTeam?.id)));
-    if (state.tab !== 'all') list = list.filter(m => statusOf(m) === state.tab);
-    if (state.league !== 'all') list = list.filter(m => String(m.competition?.id ?? m.competition?.name ?? '') === state.league);
-    if (state.query.trim()) { const q = state.query.trim().toLocaleLowerCase(); list = list.filter(m => [teamName(m.homeTeam), teamName(m.awayTeam), m.competition?.name, m.competition?.area?.name].some(x => String(x || '').toLocaleLowerCase().includes(q))); }
-    list.sort((a,b) => state.sort === 'league' ? String(a.competition?.name || '').localeCompare(String(b.competition?.name || '')) : new Date(a.utcDate || a.date || 0) - new Date(b.utcDate || b.date || 0));
+
+    if (state.view === 'today') {
+      list = list.filter(match => matchDate(match) === selectedDate);
+    } else if (state.view === 'live') {
+      list = list.filter(match => statusOf(match) === 'live');
+    } else if (state.view === 'upcoming') {
+      list = list.filter(match => {
+        return (
+          statusOf(match) === 'upcoming' &&
+          matchDate(match) >= selectedDate
+        );
+      });
+    } else if (state.view === 'finished') {
+      list = list.filter(match => statusOf(match) === 'finished');
+    } else if (state.view === 'favorites') {
+      list = list.filter(match =>
+        state.favorites.has(matchId(match)) ||
+        state.favorites.has(String(match.homeTeam?.id)) ||
+        state.favorites.has(String(match.awayTeam?.id))
+      );
+    }
+
     return list;
   }
-  function renderList() {
-    if (state.loading) { els.matchList.innerHTML = '<div class="loading-state"><span class="loader"></span><strong>كنوجدو ليك المباريات...</strong><small>لحظات ونجيبو آخر البيانات المتاحة.</small></div>'; els.loadMore.hidden = true; return; }
-    if (state.error && !state.matches.length) { els.matchList.innerHTML = `<div class="error-state"><div class="empty-icon">!</div><strong>ما قدرناش نجيبو المباريات دابا</strong><p>${esc(state.error)}</p><button class="retry-btn" id="retryBtn">عاود المحاولة</button></div>`; $('#retryBtn')?.addEventListener('click', loadMatches); els.resultCount.textContent = 'تعذر تحميل البيانات'; els.loadMore.hidden = true; return; }
-    const list = visibleMatches();
-    if (!list.length) {
-      const msg = state.view === 'favorites' ? 'مازال ما ضفتي حتى مباراة للمفضلة.' : state.query ? 'ما لقيناش مباريات كتوافق البحث ديالك.' : 'ما كايناش مباريات مطابقة لهاد الاختيارات.';
-      els.matchList.innerHTML = `<div class="empty-state"><div class="empty-icon">⚽</div><strong>${state.query ? 'ما لقيناش النتيجة' : 'ما كايناش مباريات هنا'}</strong><p>${esc(msg)}</p>${state.error ? `<p>${esc(state.error)}</p>` : ''}<button class="retry-btn" id="emptyResetBtn">عرض جميع المباريات</button></div>`;
-      $('#emptyResetBtn')?.addEventListener('click', () => { state.query = ''; state.tab = 'all'; state.league = 'all'; els.search.value = ''; els.leagueSelect.value = 'all'; setTab('all'); renderList(); });
-      els.resultCount.textContent = '0 مباراة'; els.loadMore.hidden = true; return;
+
+  function visibleMatches() {
+    let list = matchesForCurrentView();
+
+    if (state.tab !== 'all') {
+      list = list.filter(match => statusOf(match) === state.tab);
     }
+
+    if (state.league !== 'all') {
+      list = list.filter(match =>
+        String(match.competition?.id ?? match.competition?.name ?? '') ===
+        state.league
+      );
+    }
+
+    if (state.query.trim()) {
+      const query = state.query.trim().toLocaleLowerCase();
+
+      list = list.filter(match => [
+        teamName(match.homeTeam),
+        teamName(match.awayTeam),
+        match.competition?.name,
+        match.competition?.area?.name
+      ].some(value =>
+        String(value || '').toLocaleLowerCase().includes(query)
+      ));
+    }
+
+    list.sort((a, b) => {
+      if (state.sort === 'league') {
+        return String(a.competition?.name || '').localeCompare(
+          String(b.competition?.name || '')
+        );
+      }
+
+      return new Date(a.utcDate || a.date || 0) -
+        new Date(b.utcDate || b.date || 0);
+    });
+
+    return list;
+  }
+
+  function renderList() {
+    if (state.loading && !state.matches.length) {
+      els.matchList.innerHTML = `
+        <div class="loading-state">
+          <span class="loader"></span>
+          <strong>كنوجدو ليك المباريات...</strong>
+          <small>لحظات ونجيبو آخر البيانات المتاحة.</small>
+        </div>
+      `;
+      els.loadMore.hidden = true;
+      return;
+    }
+
+    if (state.error && !state.matches.length) {
+      els.matchList.innerHTML = `
+        <div class="error-state">
+          <div class="empty-icon">!</div>
+          <strong>ما قدرناش نجيبو المباريات دابا</strong>
+          <p>${esc(state.error)}</p>
+          <button class="retry-btn" id="retryBtn">عاود المحاولة</button>
+        </div>
+      `;
+
+      $('#retryBtn')?.addEventListener('click', loadMatches);
+      els.resultCount.textContent = 'تعذر تحميل البيانات';
+      els.loadMore.hidden = true;
+      return;
+    }
+
+    const list = visibleMatches();
+
+    if (!list.length) {
+      const message =
+        state.view === 'favorites'
+          ? 'مازال ما ضفتي حتى مباراة للمفضلة.'
+          : state.query
+            ? 'ما لقيناش مباريات كتوافق البحث ديالك.'
+            : state.view === 'today'
+              ? 'ما لقاينا حتى مباراة فالتاريخ المختار ضمن البيانات المتاحة.'
+              : state.view === 'upcoming'
+                ? 'ما كايناش مباريات قادمة متاحة فالفترة المحمّلة.'
+                : 'ما كايناش مباريات مطابقة لهاد الاختيارات.';
+
+      els.matchList.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">⚽</div>
+          <strong>${state.query ? 'ما لقيناش النتيجة' : 'ما كايناش مباريات هنا'}</strong>
+          <p>${esc(message)}</p>
+          ${state.error ? `<p>${esc(state.error)}</p>` : ''}
+          <button class="retry-btn" id="emptyResetBtn">عرض جميع المباريات</button>
+        </div>
+      `;
+
+      $('#emptyResetBtn')?.addEventListener('click', () => {
+        state.query = '';
+        state.tab = 'all';
+        state.league = 'all';
+        state.limit = 12;
+
+        els.search.value = '';
+        els.leagueSelect.value = 'all';
+
+        setTab('all');
+        renderList();
+      });
+
+      els.resultCount.textContent = '0 مباراة';
+      els.loadMore.hidden = true;
+      return;
+    }
+
     const shown = list.slice(0, state.limit);
+
     els.matchList.innerHTML = shown.map(renderMatch).join('');
+
     attachCrestFallbacks();
+
     els.resultCount.textContent = `عرض ${shown.length} من ${list.length} مباراة`;
     els.loadMore.hidden = list.length <= state.limit;
-    els.matchList.querySelectorAll('[data-favorite]').forEach(btn => btn.addEventListener('click', () => toggleFavorite(btn.dataset.favorite)));
+
+    els.matchList.querySelectorAll('[data-favorite]').forEach(button => {
+      button.addEventListener('click', () => {
+        toggleFavorite(button.dataset.favorite);
+      });
+    });
   }
+
   function updateStats() {
-    const live = state.matches.filter(m => statusOf(m) === 'live').length;
-    const finished = state.matches.filter(m => statusOf(m) === 'finished').length;
-    $('#statLive').textContent = live; $('#statTotal').textContent = state.matches.length; $('#statFinished').textContent = finished; $('#statFav').textContent = state.favorites.size;
-    $('#liveNavCount').textContent = live; $('#tabAllCount').textContent = state.matches.length; $('#tabLiveCount').textContent = live;
-    $('#tabUpcomingCount').textContent = state.matches.filter(m => statusOf(m) === 'upcoming').length; $('#tabFinishedCount').textContent = finished;
-    $('#heroLiveText').textContent = live ? `${live} مباراة مباشرة دابا` : 'آخر نتائج المباريات المتاحة عندك';
-    $('#apiStatusTitle').textContent = state.error ? 'تعذر الاتصال' : 'حالة الاتصال'; $('#apiStatusText').textContent = state.loading ? 'كنحدّثو البيانات...' : state.error ? 'راجع إعدادات API' : `آخر تحديث: ${state.lastUpdated ? timeLabel(state.lastUpdated) : '—'}`;
-    $('#apiLight').className = `status-light ${state.error ? 'bad' : state.loading ? '' : 'ok'}`;
-    $('#year').textContent = new Date().getFullYear();
+    const todayMatches = state.matches.filter(
+      match => matchDate(match) === (els.date.value || todayISO())
+    );
+
+    const live = state.matches.filter(
+      match => statusOf(match) === 'live'
+    ).length;
+
+    const finished = state.matches.filter(
+      match => statusOf(match) === 'finished'
+    ).length;
+
+    const upcoming = state.matches.filter(
+      match => statusOf(match) === 'upcoming'
+    ).length;
+
+    const setText = (selector, value) => {
+      const element = $(selector);
+      if (element) element.textContent = String(value);
+    };
+
+    setText('#statLive', live);
+    setText('#statTotal', todayMatches.length);
+    setText('#statFinished', finished);
+    setText('#statFav', state.favorites.size);
+    setText('#liveNavCount', live);
+
+    const scoped = matchesForCurrentView();
+
+    setText('#tabAllCount', scoped.length);
+    setText(
+      '#tabLiveCount',
+      scoped.filter(match => statusOf(match) === 'live').length
+    );
+    setText(
+      '#tabUpcomingCount',
+      scoped.filter(match => statusOf(match) === 'upcoming').length
+    );
+    setText(
+      '#tabFinishedCount',
+      scoped.filter(match => statusOf(match) === 'finished').length
+    );
+
+    setText(
+      '#heroLiveText',
+      live ? `${live} مباراة مباشرة دابا` : 'آخر نتائج المباريات المتاحة عندك'
+    );
+
+    setText('#apiStatusTitle', state.error ? 'تعذر الاتصال' : 'حالة الاتصال');
+
+    setText(
+      '#apiStatusText',
+      state.loading
+        ? 'كنحدّثو البيانات...'
+        : state.error
+          ? 'راجع حالة الاتصال'
+          : `آخر تحديث: ${state.lastUpdated ? timeLabel(state.lastUpdated) : '—'}`
+    );
+
+    const light = $('#apiLight');
+
+    if (light) {
+      light.className = `status-light ${
+        state.error ? 'bad' : state.loading ? '' : 'ok'
+      }`;
+    }
+
+    setText('#year', new Date().getFullYear());
   }
+
   function updateHeading() {
-    const title = viewLabels[state.view] || viewLabels.today; els.sectionTitle.childNodes[0].textContent = `${title} `; els.crumb.textContent = title;
-    els.headingDate.textContent = dateLabel(els.date.value); els.sectionSubtitle.textContent = state.view === 'favorites' ? 'المباريات والفرق اللي حفظتي.' : 'كل المواجهات المهمة فبلاصة وحدة.';
-    els.navButtons.forEach(b => b.classList.toggle('active', b.dataset.view === state.view));
+    const title = viewLabels[state.view] || viewLabels.today;
+
+    if (els.sectionTitle.firstChild) {
+      els.sectionTitle.firstChild.textContent = `${title} `;
+    } else {
+      els.sectionTitle.textContent = title;
+    }
+
+    els.crumb.textContent = title;
+
+    els.headingDate.textContent =
+      state.view === 'upcoming'
+        ? '7 أيام جاية'
+        : dateLabel(els.date.value);
+
+    const subtitles = {
+      today: 'مباريات التاريخ اللي اخترتي، حسب البيانات المتاحة.',
+      live: 'المباريات اللي كتتلعب دابا ضمن البرنامج المتاح.',
+      upcoming: 'برنامج المباريات القادمة خلال الأيام السبعة الجاية.',
+      finished: 'النتائج النهائية المتاحة ضمن الفترة المحمّلة.',
+      favorites: 'المباريات اللي حفظتي فالمفضلة.'
+    };
+
+    els.sectionSubtitle.textContent =
+      subtitles[state.view] || subtitles.today;
+
+    els.navButtons.forEach(button => {
+      button.classList.toggle(
+        'active',
+        button.dataset.view === state.view
+      );
+    });
   }
+
   function populateLeagues() {
     const current = state.league;
-    const leagues = new Map(); state.matches.forEach(m => { const id = String(m.competition?.id ?? m.competition?.name ?? ''); if (id) leagues.set(id, m.competition?.name || m.competitionName || 'بطولة'); });
-    els.leagueSelect.innerHTML = '<option value="all">جميع البطولات</option>' + [...leagues.entries()].sort((a,b) => a[1].localeCompare(b[1])).map(([id,name]) => `<option value="${esc(id)}">${esc(name)}</option>`).join('');
-    els.leagueSelect.value = [...els.leagueSelect.options].some(o => o.value === current) ? current : 'all'; state.league = els.leagueSelect.value;
+    const leagues = new Map();
+
+    state.matches.forEach(match => {
+      const id = String(
+        match.competition?.id ?? match.competition?.name ?? ''
+      );
+
+      if (id) {
+        leagues.set(
+          id,
+          match.competition?.name || match.competitionName || 'بطولة'
+        );
+      }
+    });
+
+    els.leagueSelect.innerHTML =
+      '<option value="all">جميع البطولات</option>' +
+      [...leagues.entries()]
+        .sort((a, b) => a[1].localeCompare(b[1]))
+        .map(([id, name]) =>
+          `<option value="${esc(id)}">${esc(name)}</option>`
+        )
+        .join('');
+
+    els.leagueSelect.value = [...els.leagueSelect.options].some(
+      option => option.value === current
+    ) ? current : 'all';
+
+    state.league = els.leagueSelect.value;
   }
-  function setTab(tab) { state.tab = tab; els.tabButtons.forEach(b => b.classList.toggle('active', b.dataset.status === tab)); state.limit = 12; renderList(); }
+
+  function setTab(tab) {
+    state.tab = tab;
+
+    els.tabButtons.forEach(button => {
+      button.classList.toggle(
+        'active',
+        button.dataset.status === tab
+      );
+    });
+
+    state.limit = 12;
+    renderList();
+    updateStats();
+  }
+
   function toggleFavorite(id) {
-    if (state.favorites.has(id)) { state.favorites.delete(id); toast('تحيدات من المفضلة.'); } else { state.favorites.add(id); toast('تزادت للمفضلة.'); }
-    saveFavorites(); updateStats(); renderList();
+    if (state.favorites.has(id)) {
+      state.favorites.delete(id);
+      toast('تحيدات من المفضلة.');
+    } else {
+      state.favorites.add(id);
+      toast('تزادت للمفضلة.');
+    }
+
+    saveFavorites();
+    updateStats();
+    renderList();
   }
+
   async function loadMatches() {
     if (state.loading) return;
-    state.loading = true; state.error = ''; updateStats(); renderList(); els.refresh.disabled = true;
+
+    state.loading = true;
+    state.error = '';
+
+    updateStats();
+    renderList();
+
+    els.refresh.disabled = true;
+
     const selected = els.date.value || todayISO();
+
+    if (state.requestController) {
+      state.requestController.abort();
+    }
+
+    const controller = new AbortController();
+    state.requestController = controller;
+
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     try {
-      const res = await fetch(`/.netlify/functions/matches?date=${encodeURIComponent(selected)}`, { headers: { Accept: 'application/json' }, cache: 'no-store' });
-      let data = {}; try { data = await res.json(); } catch { throw new Error('الاستجابة من الخادم ما كانتش مفهومة.'); }
-      if (!res.ok) {
-        if (res.status === 401 || res.status === 403) throw new Error('مفتاح API ناقص أو غير صالح، أو الباقة ما كتسمحش بهاد البيانات.');
-        if (res.status === 429) throw new Error('وصلنا للحد ديال الطلبات. تسنّى شوية وعاود.');
-        throw new Error(data.error || `وقع مشكل فالخادم (${res.status}).`);
+      // Load a seven-day window, not just a single day.
+      const endpoint =
+        `/.netlify/functions/matches?date=${encodeURIComponent(selected)}&days=7`;
+
+      const response = await fetch(endpoint, {
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+        signal: controller.signal
+      });
+
+      let data = {};
+
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error('الاستجابة من الخادم ما كانتش مفهومة.');
       }
-      if (!Array.isArray(data.matches)) throw new Error('البيانات اللي وصلات ما فيهاش لائحة المباريات.');
-      state.matches = data.matches; state.lastUpdated = new Date().toISOString();
-      if (data.warning) state.error = data.warning;
+
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          throw new Error(
+            'مفتاح API غير صالح أو الباقة ما كتسمحش بهاد الطلب.'
+          );
+        }
+
+        if (response.status === 429) {
+          throw new Error(
+            'وصلنا للحد ديال الطلبات. تسنّى شوية وعاود.'
+          );
+        }
+
+        throw new Error(
+          data.error || `وقع مشكل فالخادم (${response.status}).`
+        );
+      }
+
+      if (!Array.isArray(data.matches)) {
+        throw new Error('البيانات اللي وصلات ما فيهاش لائحة المباريات.');
+      }
+
+      state.matches = data.matches;
+      state.lastUpdated = new Date().toISOString();
+      state.error = data.warning || '';
+
       populateLeagues();
-    } catch (err) {
-      state.error = err instanceof TypeError ? 'ما قدرناش نتاصلو بالخادم. تأكد من الإنترنت وأن الموقع منشور على Netlify.' : (err.message || 'وقع خطأ غير متوقع.');
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        state.error = 'الطلب توقف بسبب انتهاء المهلة أو تحديث جديد.';
+      } else if (error instanceof TypeError) {
+        state.error =
+          'ما قدرناش نتاصلو بالخادم. تأكد من الإنترنت ونشر Netlify.';
+      } else {
+        state.error = error.message || 'وقع خطأ غير متوقع.';
+      }
     } finally {
-      state.loading = false; els.refresh.disabled = false; updateStats(); updateHeading(); renderList();
+      clearTimeout(timeoutId);
+
+      if (state.requestController === controller) {
+        state.requestController = null;
+      }
+
+      state.loading = false;
+      els.refresh.disabled = false;
+
+      updateHeading();
+      updateStats();
+      renderList();
     }
   }
-  els.navButtons.forEach(btn => btn.addEventListener('click', () => { state.view = btn.dataset.view; state.tab = 'all'; setTab('all'); updateHeading(); renderList(); }));
-  els.tabButtons.forEach(btn => btn.addEventListener('click', () => setTab(btn.dataset.status)));
-  els.search.addEventListener('input', e => { state.query = e.target.value; state.limit = 12; renderList(); });
-  els.date.value = todayISO(); $('#todayLabel').textContent = dateLabel(todayISO());
-  els.date.addEventListener('change', () => { state.view = 'today'; state.tab = 'all'; state.limit = 12; updateHeading(); setTab('all'); loadMatches(); });
-  els.refresh.addEventListener('click', () => { loadMatches(); toast('كنحدّثو النتائج...'); });
-  els.filterBtn.addEventListener('click', () => { els.filterPanel.hidden = !els.filterPanel.hidden; });
-  els.leagueSelect.addEventListener('change', e => { state.league = e.target.value; state.limit = 12; renderList(); });
-  els.clearFilters.addEventListener('click', () => { state.league = 'all'; els.leagueSelect.value = 'all'; state.query = ''; els.search.value = ''; renderList(); });
-  els.sort.addEventListener('change', e => { state.sort = e.target.value; renderList(); });
-  els.loadMore.addEventListener('click', () => { state.limit += 12; renderList(); });
-  updateHeading(); updateStats(); loadMatches();
-  // Refresh scores periodically, but never keep requests running concurrently.
-  setInterval(() => { if (document.visibilityState === 'visible') loadMatches(); }, 90000);
+
+  // Main navigation
+  els.navButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      state.view = button.dataset.view || 'today';
+      state.tab = 'all';
+      state.limit = 12;
+
+      updateHeading();
+      setTab('all');
+      updateStats();
+      renderList();
+    });
+  });
+
+  // Status filters
+  els.tabButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      setTab(button.dataset.status || 'all');
+    });
+  });
+
+  // Search
+  els.search.addEventListener('input', event => {
+    state.query = event.target.value;
+    state.limit = 12;
+    renderList();
+  });
+
+  // Date selection
+  els.date.value = todayISO();
+
+  const todayLabel = $('#todayLabel');
+  if (todayLabel) {
+    todayLabel.textContent = dateLabel(els.date.value);
+  }
+
+  els.date.addEventListener('change', () => {
+    state.view = 'today';
+    state.tab = 'all';
+    state.limit = 12;
+
+    if (todayLabel) {
+      todayLabel.textContent = dateLabel(els.date.value);
+    }
+
+    updateHeading();
+    setTab('all');
+    loadMatches();
+  });
+
+  // Manual refresh
+  els.refresh.addEventListener('click', () => {
+    loadMatches();
+    toast('كنحدّثو النتائج...');
+  });
+
+  // Competition filter panel
+  els.filterBtn.addEventListener('click', () => {
+    els.filterPanel.hidden = !els.filterPanel.hidden;
+  });
+
+  els.leagueSelect.addEventListener('change', event => {
+    state.league = event.target.value;
+    state.limit = 12;
+    renderList();
+    updateStats();
+  });
+
+  els.clearFilters.addEventListener('click', () => {
+    state.league = 'all';
+    state.query = '';
+    state.tab = 'all';
+    state.limit = 12;
+
+    els.leagueSelect.value = 'all';
+    els.search.value = '';
+
+    setTab('all');
+    renderList();
+    updateStats();
+  });
+
+  // Sorting
+  els.sort.addEventListener('change', event => {
+    state.sort = event.target.value;
+    renderList();
+  });
+
+  // Pagination
+  els.loadMore.addEventListener('click', () => {
+    state.limit += 12;
+    renderList();
+  });
+
+  // Initial page
+  updateHeading();
+  updateStats();
+  loadMatches();
+
+  // Refresh periodically while the page is visible.
+  // The request guard prevents concurrent refreshes.
+  setInterval(() => {
+    if (document.visibilityState === 'visible') {
+      loadMatches();
+    }
+  }, 90000);
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      loadMatches();
+    }
+  });
+})();
+(() => {
+  'use strict';
+
+  const $ = (selector) => document.querySelector(selector);
+
+  const els = {
+    matchList: $('#matchList'),
+    search: $('#searchInput'),
+    date: $('#datePicker'),
+    refresh: $('#refreshBtn'),
+    sectionTitle: $('#sectionTitle'),
+    sectionSubtitle: $('#sectionSubtitle'),
+    crumb: $('#crumbTitle'),
+    headingDate: $('#headingDate'),
+    tabButtons: [...document.querySelectorAll('.match-tab')],
+    navButtons: [...document.querySelectorAll('.nav-item')],
+    filterBtn: $('#leagueFilterBtn'),
+    filterPanel: $('#filterPanel'),
+    leagueSelect: $('#leagueSelect'),
+    clearFilters: $('#clearFilters'),
+    sort: $('#sortSelect'),
+    loadMore: $('#loadMoreBtn'),
+    resultCount: $('#resultCount'),
+    toast: $('#toast')
+  };
+
+  // Stop early if the HTML structure doesn't match this script.
+  const required = [
+    'matchList', 'search', 'date', 'refresh', 'sectionTitle',
+    'sectionSubtitle', 'crumb', 'headingDate', 'filterBtn',
+    'filterPanel', 'leagueSelect', 'clearFilters', 'sort',
+    'loadMore', 'resultCount', 'toast'
+  ];
+
+  for (const key of required) {
+    if (!els[key]) {
+      console.error(`DREB Football: missing HTML element "${key}".`);
+      return;
+    }
+  }
+
+  const state = {
+    matches: [],
+    view: 'today',
+    tab: 'all',
+    query: '',
+    league: 'all',
+    sort: 'time',
+    loading: false,
+    error: '',
+    limit: 12,
+    favorites: readFavorites(),
+    lastUpdated: null,
+    toastTimer: null,
+    requestController: null
+  };
+
+  const viewLabels = {
+    today: 'مباريات اليوم',
+    live: 'مباشر الآن',
+    upcoming: 'المباريات القادمة',
+    finished: 'المباريات المنتهية',
+    favorites: 'المفضلة'
+  };
+
+  const liveStatuses = new Set([
+    'IN_PLAY', 'PAUSED', 'LIVE', '1H', '2H',
+    'ET', 'P', 'HT', 'BREAK', 'EXTRA_TIME'
+  ]);
+
+  const doneStatuses = new Set([
+    'FINISHED', 'FT', 'AET', 'PEN', 'AWARDED'
+  ]);
+
+  const upcomingStatuses = new Set([
+    'SCHEDULED', 'TIMED', 'NS'
+  ]);
+
+  const esc = (value) =>
+    String(value ?? '').replace(/[&<>"']/g, char => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    })[char]);
+
+  function readFavorites() {
+    try {
+      const value = JSON.parse(
+        localStorage.getItem('dreb-favorites-v2') || '[]'
+      );
+      return new Set(value.map(String));
+    } catch {
+      return new Set();
+    }
+  }
+
+  function saveFavorites() {
+    try {
+      localStorage.setItem(
+        'dreb-favorites-v2',
+        JSON.stringify([...state.favorites])
+      );
+    } catch {
+      toast('تعذر حفظ المفضلة على هذا الجهاز.');
+    }
+  }
+
+  function toast(message) {
+    els.toast.textContent = message;
+    els.toast.classList.add('show');
+
+    clearTimeout(state.toastTimer);
+
+    state.toastTimer = setTimeout(() => {
+      els.toast.classList.remove('show');
+    }, 2600);
+  }
+
+  function todayISO() {
+    const date = new Date();
+
+    return [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+      String(date.getDate()).padStart(2, '0')
+    ].join('-');
+  }
+
+  function dateLabel(value) {
+    if (!value) return '';
+
+    const date = new Date(`${value}T12:00:00`);
+
+    return new Intl.DateTimeFormat('ar-MA', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    }).format(date);
+  }
+
+  function timeLabel(value) {
+    if (!value) return '—';
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) return '—';
+
+    return new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).format(date);
+  }
+
+  function matchDate(match) {
+    if (!match.utcDate && !match.date) return '';
+    const date = new Date(match.utcDate || match.date);
+
+    if (Number.isNaN(date.getTime())) return '';
+
+    // Use the viewer's local date for the displayed match day.
+    return [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+      String(date.getDate()).padStart(2, '0')
+    ].join('-');
+  }
+
+  function statusOf(match) {
+    const status = String(match.status || '').toUpperCase();
+
+    if (liveStatuses.has(status)) return 'live';
+    if (doneStatuses.has(status)) return 'finished';
+    if (upcomingStatuses.has(status)) return 'upcoming';
+
+    return 'other';
+  }
+
+  function statusText(match) {
+    const status = String(match.status || '').toUpperCase();
+
+    if (status === 'PAUSED' || status === 'HT') {
+      return 'استراحة';
+    }
+
+    if (liveStatuses.has(status)) {
+      return match.minute != null ? `${match.minute}′` : 'مباشر';
+    }
+
+    if (doneStatuses.has(status)) return 'نهاية المباراة';
+    if (status === 'POSTPONED') return 'مؤجلة';
+    if (status === 'CANCELLED') return 'أُلغيت';
+    if (status === 'SUSPENDED') return 'متوقفة';
+    if (status === 'PENDING') return 'بانتظار التأكيد';
+
+    if (upcomingStatuses.has(status)) {
+      return timeLabel(match.utcDate || match.date);
+    }
+
+    return 'الحالة غير متاحة';
+  }
+
+  function score(match) {
+    const home =
+      match.homeScore ??
+      match.score?.fullTime?.home ??
+      match.score?.regularTime?.home;
+
+    const away =
+      match.awayScore ??
+      match.score?.fullTime?.away ??
+      match.score?.regularTime?.away;
+
+    if (home == null || away == null) return '– : –';
+
+    return `${home} : ${away}`;
+  }
+
+  function teamName(team) {
+    return team?.name || team?.shortName || 'فريق غير معروف';
+  }
+
+  function teamAbbr(team) {
+    const name = teamName(team).trim();
+
+    return (
+      team?.tla ||
+      name.split(/\s+/).slice(0, 2).map(part => part[0]).join('')
+    ).slice(0, 3).toUpperCase() || 'FC';
+  }
+
+  function matchId(match) {
+    return String(
+      match.id ??
+      `${match.homeTeam?.id || teamName(match.homeTeam)}-${match.utcDate || match.date}-${match.awayTeam?.id || teamName(match.awayTeam)}`
+    );
+  }
+
+  function renderTeam(team, side) {
+    const name = teamName(team);
+    const crest = team?.crest;
+
+    const crestHtml =
+      crest && /^https:\/\//i.test(crest)
+        ? `<span class="team-crest"><img src="${esc(crest)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-fallback="${esc(teamAbbr(team))}"></span>`
+        : `<span class="team-crest">${esc(teamAbbr(team))}</span>`;
+
+    return `
+      <div class="team ${side}">
+        ${crestHtml}
+        <span class="team-name" title="${esc(name)}">${esc(name)}</span>
+      </div>
+    `;
+  }
+
+  function attachCrestFallbacks() {
+    els.matchList.querySelectorAll('img[data-fallback]').forEach(img => {
+      img.addEventListener('error', () => {
+        const fallback = document.createElement('span');
+        fallback.className = 'team-crest';
+        fallback.textContent = img.dataset.fallback || 'FC';
+        img.parentElement?.replaceWith(fallback);
+      }, { once: true });
+    });
+  }
+
+  function renderMatch(match) {
+    const status = statusOf(match);
+    const id = matchId(match);
+    const saved = state.favorites.has(id);
+    const competition =
+      match.competition?.name || match.competitionName || 'مباراة';
+    const area =
+      match.competition?.area?.name ||
+      match.area ||
+      match.stage ||
+      'كرة القدم';
+
+    const time =
+      status === 'live'
+        ? statusText(match)
+        : status === 'finished'
+          ? 'انتهت'
+          : status === 'upcoming'
+            ? timeLabel(match.utcDate || match.date)
+            : statusText(match);
+
+    const scoreText =
+      status === 'upcoming'
+        ? timeLabel(match.utcDate || match.date)
+        : score(match);
+
+    let pill = '<span class="status-pill">الحالة غير متاحة</span>';
+
+    if (status === 'live') {
+      pill = '<span class="status-pill live">مباشر</span>';
+    } else if (status === 'upcoming') {
+      pill = '<span class="status-pill soon">قادمة</span>';
+    } else if (status === 'finished') {
+      pill = '<span class="status-pill">منتهية</span>';
+    }
+
+    return `
+      <article class="match-card" data-match-id="${esc(id)}">
+        <div class="league-info">
+          <span class="league-emblem">
+            ${esc((match.competition?.code || competition.slice(0, 2)).slice(0, 3).toUpperCase())}
+          </span>
+          <div class="league-text">
+            <strong title="${esc(competition)}">${esc(competition)}</strong>
+            <small>
+              ${esc(area)}
+              ${match.matchday ? ` · الجولة ${esc(match.matchday)}` : ''}
+            </small>
+          </div>
+        </div>
+
+        <div class="teams-wrap">
+          ${renderTeam(match.homeTeam, 'home')}
+          <div class="score-box">
+            <div class="score-number">${esc(scoreText)}</div>
+            <div class="score-time ${status === 'live' ? 'is-live' : ''}">
+              ${esc(time)}
+            </div>
+          </div>
+          ${renderTeam(match.awayTeam, 'away')}
+        </div>
+
+        <div class="match-end">
+          ${pill}
+          <button
+            class="favorite-btn ${saved ? 'saved' : ''}"
+            data-favorite="${esc(id)}"
+            aria-label="${saved ? 'حذف من المفضلة' : 'إضافة للمفضلة'}"
+            aria-pressed="${saved}"
+          >${saved ? '★' : '☆'}</button>
+        </div>
+      </article>
+    `;
+  }
+
+  function matchesForCurrentView() {
+    const selectedDate = els.date.value || todayISO();
+    let list = [...state.matches];
+
+    if (state.view === 'today') {
+      list = list.filter(match => matchDate(match) === selectedDate);
+    } else if (state.view === 'live') {
+      list = list.filter(match => statusOf(match) === 'live');
+    } else if (state.view === 'upcoming') {
+      list = list.filter(match => {
+        return (
+          statusOf(match) === 'upcoming' &&
+          matchDate(match) >= selectedDate
+        );
+      });
+    } else if (state.view === 'finished') {
+      list = list.filter(match => statusOf(match) === 'finished');
+    } else if (state.view === 'favorites') {
+      list = list.filter(match =>
+        state.favorites.has(matchId(match)) ||
+        state.favorites.has(String(match.homeTeam?.id)) ||
+        state.favorites.has(String(match.awayTeam?.id))
+      );
+    }
+
+    return list;
+  }
+
+  function visibleMatches() {
+    let list = matchesForCurrentView();
+
+    if (state.tab !== 'all') {
+      list = list.filter(match => statusOf(match) === state.tab);
+    }
+
+    if (state.league !== 'all') {
+      list = list.filter(match =>
+        String(match.competition?.id ?? match.competition?.name ?? '') ===
+        state.league
+      );
+    }
+
+    if (state.query.trim()) {
+      const query = state.query.trim().toLocaleLowerCase();
+
+      list = list.filter(match => [
+        teamName(match.homeTeam),
+        teamName(match.awayTeam),
+        match.competition?.name,
+        match.competition?.area?.name
+      ].some(value =>
+        String(value || '').toLocaleLowerCase().includes(query)
+      ));
+    }
+
+    list.sort((a, b) => {
+      if (state.sort === 'league') {
+        return String(a.competition?.name || '').localeCompare(
+          String(b.competition?.name || '')
+        );
+      }
+
+      return new Date(a.utcDate || a.date || 0) -
+        new Date(b.utcDate || b.date || 0);
+    });
+
+    return list;
+  }
+
+  function renderList() {
+    if (state.loading && !state.matches.length) {
+      els.matchList.innerHTML = `
+        <div class="loading-state">
+          <span class="loader"></span>
+          <strong>كنوجدو ليك المباريات...</strong>
+          <small>لحظات ونجيبو آخر البيانات المتاحة.</small>
+        </div>
+      `;
+      els.loadMore.hidden = true;
+      return;
+    }
+
+    if (state.error && !state.matches.length) {
+      els.matchList.innerHTML = `
+        <div class="error-state">
+          <div class="empty-icon">!</div>
+          <strong>ما قدرناش نجيبو المباريات دابا</strong>
+          <p>${esc(state.error)}</p>
+          <button class="retry-btn" id="retryBtn">عاود المحاولة</button>
+        </div>
+      `;
+
+      $('#retryBtn')?.addEventListener('click', loadMatches);
+      els.resultCount.textContent = 'تعذر تحميل البيانات';
+      els.loadMore.hidden = true;
+      return;
+    }
+
+    const list = visibleMatches();
+
+    if (!list.length) {
+      const message =
+        state.view === 'favorites'
+          ? 'مازال ما ضفتي حتى مباراة للمفضلة.'
+          : state.query
+            ? 'ما لقيناش مباريات كتوافق البحث ديالك.'
+            : state.view === 'today'
+              ? 'ما لقاينا حتى مباراة فالتاريخ المختار ضمن البيانات المتاحة.'
+              : state.view === 'upcoming'
+                ? 'ما كايناش مباريات قادمة متاحة فالفترة المحمّلة.'
+                : 'ما كايناش مباريات مطابقة لهاد الاختيارات.';
+
+      els.matchList.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">⚽</div>
+          <strong>${state.query ? 'ما لقيناش النتيجة' : 'ما كايناش مباريات هنا'}</strong>
+          <p>${esc(message)}</p>
+          ${state.error ? `<p>${esc(state.error)}</p>` : ''}
+          <button class="retry-btn" id="emptyResetBtn">عرض جميع المباريات</button>
+        </div>
+      `;
+
+      $('#emptyResetBtn')?.addEventListener('click', () => {
+        state.query = '';
+        state.tab = 'all';
+        state.league = 'all';
+        state.limit = 12;
+
+        els.search.value = '';
+        els.leagueSelect.value = 'all';
+
+        setTab('all');
+        renderList();
+      });
+
+      els.resultCount.textContent = '0 مباراة';
+      els.loadMore.hidden = true;
+      return;
+    }
+
+    const shown = list.slice(0, state.limit);
+
+    els.matchList.innerHTML = shown.map(renderMatch).join('');
+
+    attachCrestFallbacks();
+
+    els.resultCount.textContent = `عرض ${shown.length} من ${list.length} مباراة`;
+    els.loadMore.hidden = list.length <= state.limit;
+
+    els.matchList.querySelectorAll('[data-favorite]').forEach(button => {
+      button.addEventListener('click', () => {
+        toggleFavorite(button.dataset.favorite);
+      });
+    });
+  }
+
+  function updateStats() {
+    const todayMatches = state.matches.filter(
+      match => matchDate(match) === (els.date.value || todayISO())
+    );
+
+    const live = state.matches.filter(
+      match => statusOf(match) === 'live'
+    ).length;
+
+    const finished = state.matches.filter(
+      match => statusOf(match) === 'finished'
+    ).length;
+
+    const upcoming = state.matches.filter(
+      match => statusOf(match) === 'upcoming'
+    ).length;
+
+    const setText = (selector, value) => {
+      const element = $(selector);
+      if (element) element.textContent = String(value);
+    };
+
+    setText('#statLive', live);
+    setText('#statTotal', todayMatches.length);
+    setText('#statFinished', finished);
+    setText('#statFav', state.favorites.size);
+    setText('#liveNavCount', live);
+
+    const scoped = matchesForCurrentView();
+
+    setText('#tabAllCount', scoped.length);
+    setText(
+      '#tabLiveCount',
+      scoped.filter(match => statusOf(match) === 'live').length
+    );
+    setText(
+      '#tabUpcomingCount',
+      scoped.filter(match => statusOf(match) === 'upcoming').length
+    );
+    setText(
+      '#tabFinishedCount',
+      scoped.filter(match => statusOf(match) === 'finished').length
+    );
+
+    setText(
+      '#heroLiveText',
+      live ? `${live} مباراة مباشرة دابا` : 'آخر نتائج المباريات المتاحة عندك'
+    );
+
+    setText('#apiStatusTitle', state.error ? 'تعذر الاتصال' : 'حالة الاتصال');
+
+    setText(
+      '#apiStatusText',
+      state.loading
+        ? 'كنحدّثو البيانات...'
+        : state.error
+          ? 'راجع حالة الاتصال'
+          : `آخر تحديث: ${state.lastUpdated ? timeLabel(state.lastUpdated) : '—'}`
+    );
+
+    const light = $('#apiLight');
+
+    if (light) {
+      light.className = `status-light ${
+        state.error ? 'bad' : state.loading ? '' : 'ok'
+      }`;
+    }
+
+    setText('#year', new Date().getFullYear());
+  }
+
+  function updateHeading() {
+    const title = viewLabels[state.view] || viewLabels.today;
+
+    if (els.sectionTitle.firstChild) {
+      els.sectionTitle.firstChild.textContent = `${title} `;
+    } else {
+      els.sectionTitle.textContent = title;
+    }
+
+    els.crumb.textContent = title;
+
+    els.headingDate.textContent =
+      state.view === 'upcoming'
+        ? '7 أيام جاية'
+        : dateLabel(els.date.value);
+
+    const subtitles = {
+      today: 'مباريات التاريخ اللي اخترتي، حسب البيانات المتاحة.',
+      live: 'المباريات اللي كتتلعب دابا ضمن البرنامج المتاح.',
+      upcoming: 'برنامج المباريات القادمة خلال الأيام السبعة الجاية.',
+      finished: 'النتائج النهائية المتاحة ضمن الفترة المحمّلة.',
+      favorites: 'المباريات اللي حفظتي فالمفضلة.'
+    };
+
+    els.sectionSubtitle.textContent =
+      subtitles[state.view] || subtitles.today;
+
+    els.navButtons.forEach(button => {
+      button.classList.toggle(
+        'active',
+        button.dataset.view === state.view
+      );
+    });
+  }
+
+  function populateLeagues() {
+    const current = state.league;
+    const leagues = new Map();
+
+    state.matches.forEach(match => {
+      const id = String(
+        match.competition?.id ?? match.competition?.name ?? ''
+      );
+
+      if (id) {
+        leagues.set(
+          id,
+          match.competition?.name || match.competitionName || 'بطولة'
+        );
+      }
+    });
+
+    els.leagueSelect.innerHTML =
+      '<option value="all">جميع البطولات</option>' +
+      [...leagues.entries()]
+        .sort((a, b) => a[1].localeCompare(b[1]))
+        .map(([id, name]) =>
+          `<option value="${esc(id)}">${esc(name)}</option>`
+        )
+        .join('');
+
+    els.leagueSelect.value = [...els.leagueSelect.options].some(
+      option => option.value === current
+    ) ? current : 'all';
+
+    state.league = els.leagueSelect.value;
+  }
+
+  function setTab(tab) {
+    state.tab = tab;
+
+    els.tabButtons.forEach(button => {
+      button.classList.toggle(
+        'active',
+        button.dataset.status === tab
+      );
+    });
+
+    state.limit = 12;
+    renderList();
+    updateStats();
+  }
+
+  function toggleFavorite(id) {
+    if (state.favorites.has(id)) {
+      state.favorites.delete(id);
+      toast('تحيدات من المفضلة.');
+    } else {
+      state.favorites.add(id);
+      toast('تزادت للمفضلة.');
+    }
+
+    saveFavorites();
+    updateStats();
+    renderList();
+  }
+
+  async function loadMatches() {
+    if (state.loading) return;
+
+    state.loading = true;
+    state.error = '';
+
+    updateStats();
+    renderList();
+
+    els.refresh.disabled = true;
+
+    const selected = els.date.value || todayISO();
+
+    if (state.requestController) {
+      state.requestController.abort();
+    }
+
+    const controller = new AbortController();
+    state.requestController = controller;
+
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    try {
+      // Load a seven-day window, not just a single day.
+      const endpoint =
+        `/.netlify/functions/matches?date=${encodeURIComponent(selected)}&days=7`;
+
+      const response = await fetch(endpoint, {
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+        signal: controller.signal
+      });
+
+      let data = {};
+
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error('الاستجابة من الخادم ما كانتش مفهومة.');
+      }
+
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          throw new Error(
+            'مفتاح API غير صالح أو الباقة ما كتسمحش بهاد الطلب.'
+          );
+        }
+
+        if (response.status === 429) {
+          throw new Error(
+            'وصلنا للحد ديال الطلبات. تسنّى شوية وعاود.'
+          );
+        }
+
+        throw new Error(
+          data.error || `وقع مشكل فالخادم (${response.status}).`
+        );
+      }
+
+      if (!Array.isArray(data.matches)) {
+        throw new Error('البيانات اللي وصلات ما فيهاش لائحة المباريات.');
+      }
+
+      state.matches = data.matches;
+      state.lastUpdated = new Date().toISOString();
+      state.error = data.warning || '';
+
+      populateLeagues();
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        state.error = 'الطلب توقف بسبب انتهاء المهلة أو تحديث جديد.';
+      } else if (error instanceof TypeError) {
+        state.error =
+          'ما قدرناش نتاصلو بالخادم. تأكد من الإنترنت ونشر Netlify.';
+      } else {
+        state.error = error.message || 'وقع خطأ غير متوقع.';
+      }
+    } finally {
+      clearTimeout(timeoutId);
+
+      if (state.requestController === controller) {
+        state.requestController = null;
+      }
+
+      state.loading = false;
+      els.refresh.disabled = false;
+
+      updateHeading();
+      updateStats();
+      renderList();
+    }
+  }
+
+  // Main navigation
+  els.navButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      state.view = button.dataset.view || 'today';
+      state.tab = 'all';
+      state.limit = 12;
+
+      updateHeading();
+      setTab('all');
+      updateStats();
+      renderList();
+    });
+  });
+
+  // Status filters
+  els.tabButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      setTab(button.dataset.status || 'all');
+    });
+  });
+
+  // Search
+  els.search.addEventListener('input', event => {
+    state.query = event.target.value;
+    state.limit = 12;
+    renderList();
+  });
+
+  // Date selection
+  els.date.value = todayISO();
+
+  const todayLabel = $('#todayLabel');
+  if (todayLabel) {
+    todayLabel.textContent = dateLabel(els.date.value);
+  }
+
+  els.date.addEventListener('change', () => {
+    state.view = 'today';
+    state.tab = 'all';
+    state.limit = 12;
+
+    if (todayLabel) {
+      todayLabel.textContent = dateLabel(els.date.value);
+    }
+
+    updateHeading();
+    setTab('all');
+    loadMatches();
+  });
+
+  // Manual refresh
+  els.refresh.addEventListener('click', () => {
+    loadMatches();
+    toast('كنحدّثو النتائج...');
+  });
+
+  // Competition filter panel
+  els.filterBtn.addEventListener('click', () => {
+    els.filterPanel.hidden = !els.filterPanel.hidden;
+  });
+
+  els.leagueSelect.addEventListener('change', event => {
+    state.league = event.target.value;
+    state.limit = 12;
+    renderList();
+    updateStats();
+  });
+
+  els.clearFilters.addEventListener('click', () => {
+    state.league = 'all';
+    state.query = '';
+    state.tab = 'all';
+    state.limit = 12;
+
+    els.leagueSelect.value = 'all';
+    els.search.value = '';
+
+    setTab('all');
+    renderList();
+    updateStats();
+  });
+
+  // Sorting
+  els.sort.addEventListener('change', event => {
+    state.sort = event.target.value;
+    renderList();
+  });
+
+  // Pagination
+  els.loadMore.addEventListener('click', () => {
+    state.limit += 12;
+    renderList();
+  });
+
+  // Initial page
+  updateHeading();
+  updateStats();
+  loadMatches();
+
+  // Refresh periodically while the page is visible.
+  // The request guard prevents concurrent refreshes.
+  setInterval(() => {
+    if (document.visibilityState === 'visible') {
+      loadMatches();
+    }
+  }, 90000);
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      loadMatches();
+    }
+  });
 })();
