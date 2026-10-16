@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a100e" />
+  <meta name="description" content="DREB Football — تابع مباريات كرة القدم والنتائج المباشرة في واجهة واحدة." />
+  <meta name="application-name" content="DREB Football" />
+  <meta property="og:title" content="DREB Football | مركز كرة القدم" />
+  <meta property="og:description" content="المباريات والنتائج في واجهة كروية واحدة." />
+  <meta property="og:type" content="website" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>DREB Football | مركز كرة القدم</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="التنقل الرئيسي">
+      <a class="brand" href="#home" aria-label="DREB Football الصفحة الرئيسية">
+        <span class="brand-mark"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 3 42 13v22L24 45 6 35V13L24 3Z" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="m24 13 7 5-3 8h-8l-3-8 7-5Zm-7 5-7-1m18 1 7-1m-8 8 4 8m-11-8-4 8m11-8 7 4m-14-4-7 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+        <span class="brand-copy"><strong>DREB<span>FOOTBALL</span></strong><small>YOUR MATCH CENTER</small></span>
+      </a>
+      <div class="side-label">القائمة الرئيسية</div>
+      <nav class="main-nav">
+        <button class="nav-item active" data-view="today"><span class="nav-icon">◷</span><span>مباريات اليوم</span><span class="nav-dot"></span></button>
+        <button class="nav-item" data-view="live"><span class="nav-icon live-icon">●</span><span>مباشر الآن</span><span class="nav-count" id="liveNavCount">0</span></button>
+        <button class="nav-item" data-view="upcoming"><span class="nav-icon">▣</span><span>القادمة</span></button>
+        <button class="nav-item" data-view="finished"><span class="nav-icon">✓</span><span>المنتهية</span></button>
+        <button class="nav-item" data-view="favorites"><span class="nav-icon">☆</span><span>المفضلة</span></button>
+      </nav>
+      <div class="sidebar-bottom"><div class="api-status"><span class="status-light" id="apiLight"></span><div><strong id="apiStatusTitle">حالة الاتصال</strong><small id="apiStatusText">كنتحققو من البيانات...</small></div></div><div class="sidebar-footer">© <span id="year"></span> DREB FOOTBALL<br/><span>صُنع لعشاق اللعبة</span></div></div>
+    </aside>
+
+    <main class="main-content" id="home">
+      <header class="topbar">
+        <div class="mobile-brand"><span class="brand-mark small-mark">D</span><strong>DREB <span>FOOTBALL</span></strong></div>
+        <div class="breadcrumb"><span>الرئيسية</span><b>/</b><strong id="crumbTitle">مباريات اليوم</strong></div>
+        <div class="top-actions"><div class="date-chip"><span>▦</span><input type="date" id="datePicker" aria-label="اختيار تاريخ المباريات" /></div><button class="icon-button" id="refreshBtn" aria-label="تحديث النتائج" title="تحديث النتائج">↻</button><button class="profile-pill" type="button" aria-label="DREB Football"><span class="profile-avatar">D</span><span>DREB</span></button></div>
+      </header>
+
+      <section class="hero-panel">
+        <div class="hero-copy"><div class="eyebrow"><span class="eyebrow-line"></span> مركزك الكروي اليومي</div><h1>اللعبة كتجمعنا.<br/><span>والنتائج عندك.</span></h1><p>تابع المباريات، اكتشف المواجهات القادمة، وخلي الفرق المفضلة ديالك ديما قريبة منك.</p><div class="hero-meta"><span class="hero-live-dot"></span><span id="heroLiveText">كنحمّلو آخر تحديثات المباريات</span><span class="meta-separator">•</span><span id="todayLabel">اليوم</span></div></div>
+        <div class="hero-graphic" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="graphic-ball"><svg viewBox="0 0 200 200"><defs><linearGradient id="ballshade" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#cbd7d0"/></linearGradient></defs><circle cx="100" cy="100" r="88" fill="url(#ballshade)"/><path d="m100 55 28 20-11 33H83L72 75l28-20Zm0 0V18m28 57 36-10m-47 43 20 34m-54-34-20 34M72 75 36 65m47 43-28 30m62-30 28 30" fill="#111d18" stroke="#111d18" stroke-width="4" stroke-linejoin="round"/><path d="M100 18 153 38 175 83 161 132 122 169 76 169 39 132 25 83 47 38Z" fill="none" stroke="#18251e" stroke-width="3"/></svg></div><div class="graphic-ring"></div><span class="graphic-tag tag-one">MATCH DAY</span><span class="graphic-tag tag-two">90′</span></div>
+      </section>
+
+      <section class="stats-grid" aria-label="ملخص المباريات">
+        <article class="stat-card"><div class="stat-top"><span class="stat-icon green">◷</span><span class="stat-caption">في الوقت الحالي</span></div><div class="stat-number" id="statLive">—</div><div class="stat-bottom"><span class="mini-pulse"></span> مباريات مباشرة</div></article>
+        <article class="stat-card"><div class="stat-top"><span class="stat-icon blue">▣</span><span class="stat-caption">برنامج اليوم</span></div><div class="stat-number" id="statTotal">—</div><div class="stat-bottom">إجمالي المباريات المعروضة</div></article>
+        <article class="stat-card"><div class="stat-top"><span class="stat-icon orange">✓</span><span class="stat-caption">صافرة النهاية</span></div><div class="stat-number" id="statFinished">—</div><div class="stat-bottom">مباراة سالات</div></article>
+        <article class="stat-card"><div class="stat-top"><span class="stat-icon purple">☆</span><span class="stat-caption">اختياراتك</span></div><div class="stat-number" id="statFav">0</div><div class="stat-bottom">مباريات محفوظة</div></article>
+      </section>
+
+      <section class="matches-section" id="matchesSection">
+        <div class="section-heading"><div><div class="section-kicker">LIVE CENTER</div><h2 id="sectionTitle">مباريات اليوم <span class="heading-date" id="headingDate"></span></h2><p id="sectionSubtitle">كل المواجهات المهمة فبلاصة وحدة.</p></div><div class="section-tools"><label class="search-box"><span>⌕</span><input id="searchInput" type="search" placeholder="قلب على فريق أو بطولة..." aria-label="البحث عن فريق أو بطولة"/><kbd>⌕</kbd></label><button class="filter-button" id="leagueFilterBtn"><span>☷</span> تصفية <span class="filter-caret">⌄</span></button></div></div>
+        <div class="filter-panel" id="filterPanel" hidden><label for="leagueSelect">البطولة</label><select id="leagueSelect"><option value="all">جميع البطولات</option></select><button id="clearFilters" type="button">مسح التصفية</button></div>
+        <div class="tabs-row"><div class="match-tabs" role="tablist" aria-label="فلترة المباريات"><button class="match-tab active" data-status="all" role="tab">الكل <span id="tabAllCount">—</span></button><button class="match-tab" data-status="live" role="tab">مباشر <span id="tabLiveCount">—</span></button><button class="match-tab" data-status="upcoming" role="tab">قادمة <span id="tabUpcomingCount">—</span></button><button class="match-tab" data-status="finished" role="tab">منتهية <span id="tabFinishedCount">—</span></button></div><div class="sort-label">الترتيب <select id="sortSelect" aria-label="ترتيب المباريات"><option value="time">حسب التوقيت</option><option value="league">حسب البطولة</option></select></div></div>
+        <div class="match-list" id="matchList" aria-live="polite"><div class="loading-state"><span class="loader"></span><strong>كنوجدو ليك المباريات...</strong><small>لحظات ونجيبو آخر البيانات المتاحة.</small></div></div>
+        <div class="list-footer"><span id="resultCount">—</span><button id="loadMoreBtn" hidden>عرض المزيد <span>←</span></button></div>
+      </section>
+      <footer class="main-footer"><span><b>DREB FOOTBALL</b> — كل تفاصيل اللعبة فمكان واحد.</span><span>البيانات حسب التغطية المتاحة من مزود النتائج.</span></footer>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="/app.js" defer></script>
+</body>
+</html>
